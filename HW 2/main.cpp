@@ -678,50 +678,52 @@ int main(void)
 		if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
 			std::fstream fs;
 			fs.open("save.txt", std::fstream::in);
-			GLfloat time;
-			fs >> time;
+			
+			if (fs.is_open()) {
+				GLfloat time;
+				fs >> time;
 
-			size_t obj_size;
+				size_t obj_size;
+				fs >> obj_size;
 
-			fs >> obj_size;
+				std::vector<Object*> new_objects;
 
-			std::vector<Object*> new_objects;
+				for (size_t i = 0; i < obj_size; ++i) {
+					size_t type;
+					fs >> type;
 
-			for (size_t i = 0; i < obj_size; ++i) {
-				size_t type;
-				fs >> type;
+					Object* obj = nullptr;
+					if (type == 0) {
+						obj = new Player();
+					}
+					if (type == 1) {
+						obj = new Dummy(glm::vec3());
+					}
+					if (type == 2) {
+						obj = new Enemy(glm::vec3());
+					}
+					if (type == 3) {
+						obj = new Projectile(glm::vec3(), glm::vec3());
+					}
+					if (type == 4) {
+						obj = new Floor(glm::vec3());
+					}
+					obj->Load(fs);
 
-				Object* obj = nullptr;
-				if (type == 0) {
-					obj = new Player();
+					new_objects.push_back(obj);
 				}
-				if (type == 1) {
-					obj = new Dummy(glm::vec3());
-				}
-				if (type == 2) {
-					obj = new Enemy(glm::vec3());
-				}
-				if (type == 3) {
-					obj = new Projectile(glm::vec3(), glm::vec3());
-				}
-				if (type == 4) {
-					obj = new Floor(glm::vec3());
-				}
-				obj->Load(fs);
+				fs.close();
 
-				new_objects.push_back(obj);
+				for (Object* obj : objects) {
+					delete obj;
+				}
+
+				objects = new_objects;
+				player = dynamic_cast<Player*>(objects[0]);
+
+				glfwSetTime(time);
+				prev_time = glfwGetTime();
 			}
-			fs.close();
-
-			for (Object* obj : objects) {
-				delete obj;
-			}
-
-			objects = new_objects;
-			player = dynamic_cast<Player*>(objects[0]);
-
-			glfwSetTime(time);
-			prev_time = glfwGetTime();
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
