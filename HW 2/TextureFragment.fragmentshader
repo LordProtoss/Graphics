@@ -1,0 +1,40 @@
+#version 330 core
+
+in vec2 UV;
+in vec3 Position_worldspace;
+in vec3 Normal_cameraspace;
+in vec3 EyeDirection_cameraspace;
+in vec3[20] LightDirections_cameraspace;
+
+out vec3 color;
+
+uniform int LightSources;
+uniform vec3[20] LightPositions_worldspace;
+uniform float[20] LightPowers;
+uniform vec3[20] LightColors;
+
+uniform sampler2D TextureSampler;
+uniform vec3 Specular;
+uniform vec3 Ambient;
+
+void main() {
+	vec3 MaterialDiffuseColor = texture(TextureSampler, UV ).rgb;
+	vec3 MaterialAmbientColor = Ambient * MaterialDiffuseColor;
+	vec3 MaterialSpecularColor = Specular;
+
+	color = MaterialAmbientColor;
+
+	for (int i = 0; i < LightSources; ++i) {
+		float distance = length( LightPositions_worldspace[i] - Position_worldspace );
+		vec3 n = normalize(Normal_cameraspace );
+		vec3 l = normalize(LightDirections_cameraspace[i]);
+		float cosTheta = clamp( dot( n,l ), 0, 1);
+
+		vec3 E = normalize(EyeDirection_cameraspace);
+		vec3 R = reflect(-l,n);
+		float cosAlpha = clamp(dot(E, R), 0, 1);
+
+		color += MaterialDiffuseColor * LightColors[i] * LightPowers[i] * cosTheta / (distance * distance) +
+			MaterialSpecularColor * LightColors[i] * LightPowers[i] * pow(cosAlpha, 5) / (distance * distance);
+	}
+}
