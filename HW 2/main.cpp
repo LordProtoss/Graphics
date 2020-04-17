@@ -25,7 +25,9 @@ GLFWwindow* window;
 #include <common/objloader.hpp>
 #include <common/text2D.hpp>
 
-static const int ShaderNum = 20;
+static const int ShaderNum = 25;
+static const int h = 768;
+static const int w = 1024;
 
 class LoadedModel {
 public:
@@ -345,9 +347,9 @@ public:
 	Object* Act(const std::vector<Object*>& objects) override {
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
-		glfwSetCursorPos(window, 1024 / 2, 768 / 2);
-		horizontal_angle_ += mouse_speed_ * GLfloat(1024 / 2 - xpos);
-		vertical_angle_ += mouse_speed_ * GLfloat(768 / 2 - ypos);
+		glfwSetCursorPos(window, w / 2, h / 2);
+		horizontal_angle_ += mouse_speed_ * GLfloat(w / 2 - xpos);
+		vertical_angle_ += mouse_speed_ * GLfloat(h / 2 - ypos);
 
 		if (vertical_angle_ > 3.14f / 2.0f) {
 			vertical_angle_ = 3.14f / 2.0f;
@@ -494,9 +496,9 @@ protected:
 
 class EnemyCreator {
 public:
-	explicit EnemyCreator(GLfloat cooldown = 5.0f, size_t retries = 10, GLfloat p = 0.5, GLfloat r_from = 30.0f,
+	explicit EnemyCreator(GLfloat cooldown = 10.0f, size_t retries = 10, GLfloat p = 0.5, GLfloat r_from = 30.0f,
 		GLfloat r_to = 50.0f, GLfloat hp_from = 1.0f, GLfloat hp_to = 5.0f, 
-		GLfloat speed_from = 1.0f, GLfloat speed_to = 5.0f)
+		GLfloat speed_from = 1.0f, GLfloat speed_to = 2.0f)
 		: cooldown_(cooldown), rng_(std::random_device()()), retries_(retries), type_(p), angle_(-3.14, 3.14),
 		r_(r_from, r_to), hp_(hp_from, hp_to), speed_(speed_from, speed_to)
 	{}
@@ -560,6 +562,83 @@ private:
 	std::uniform_real_distribution<> speed_;
 };
 
+void SaveToFile(const std::string& file, std::vector<Object*>& objects) {
+	std::fstream fs;
+	fs.open(file, std::fstream::out);
+	fs << glfwGetTime() << std::endl;
+	fs << objects.size() << std::endl;
+	for (Object* obj : objects) {
+		if (dynamic_cast<Player*>(obj) != nullptr) {
+			fs << 0 << std::endl;
+		}
+		if (dynamic_cast<Dummy*>(obj) != nullptr) {
+			fs << 1 << std::endl;
+		}
+		if (dynamic_cast<Enemy*>(obj) != nullptr) {
+			fs << 2 << std::endl;
+		}
+		if (dynamic_cast<Projectile*>(obj) != nullptr) {
+			fs << 3 << std::endl;
+		}
+		if (dynamic_cast<Floor*>(obj) != nullptr) {
+			fs << 4 << std::endl;
+		}
+		obj->Save(fs);
+	}
+	fs.close();
+}
+
+void LoadFromFile(const std::string& file, std::vector<Object*>& objects, Player*& player, GLfloat& prev_time) {
+	std::fstream fs;
+	fs.open(file, std::fstream::in);
+
+	if (fs.is_open()) {
+		GLfloat time;
+		fs >> time;
+
+		size_t obj_size;
+		fs >> obj_size;
+
+		std::vector<Object*> new_objects;
+
+		for (size_t i = 0; i < obj_size; ++i) {
+			size_t type;
+			fs >> type;
+
+			Object* obj = nullptr;
+			if (type == 0) {
+				obj = new Player();
+			}
+			if (type == 1) {
+				obj = new Dummy(glm::vec3());
+			}
+			if (type == 2) {
+				obj = new Enemy(glm::vec3());
+			}
+			if (type == 3) {
+				obj = new Projectile(glm::vec3(), glm::vec3());
+			}
+			if (type == 4) {
+				obj = new Floor(glm::vec3());
+			}
+			obj->Load(fs);
+
+			new_objects.push_back(obj);
+		}
+		fs.close();
+
+		for (Object* obj : objects) {
+			delete obj;
+		}
+
+		objects = new_objects;
+		player = dynamic_cast<Player*>(objects[0]);
+
+		glfwSetTime(time);
+		prev_time = glfwGetTime();
+	}
+}
+
 int main(void)
 {
 	if (!glfwInit())
@@ -575,7 +654,7 @@ int main(void)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	window = glfwCreateWindow(1024, 768, "Shooter", NULL, NULL);
+	window = glfwCreateWindow(w, h, "Shooter", NULL, NULL);
 	if (window == NULL) {
 		fprintf(stderr, "Failed to open GLFW window.\n");
 		getchar();
@@ -597,9 +676,9 @@ int main(void)
 
 
 	glfwPollEvents();
-	glfwSetCursorPos(window, 1024 / 2, 768 / 2);
+	glfwSetCursorPos(window, w / 2, h / 2);
 
-	glClearColor(0.02f, 0.02f, 0.02f, 0.0f);
+	glClearColor(0.05f, 0.05f, 0.05f, 0.0f);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -650,80 +729,11 @@ int main(void)
 
 	do {
 		if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-			std::fstream fs;
-			fs.open("save.txt", std::fstream::out);
-			fs << glfwGetTime() << std::endl;
-			fs << objects.size() << std::endl;
-			for (Object* obj : objects) {
-				if (dynamic_cast<Player*>(obj) != nullptr) {
-					fs << 0 << std::endl;
-				}
-				if (dynamic_cast<Dummy*>(obj) != nullptr) {
-					fs << 1 << std::endl;
-				}
-				if (dynamic_cast<Enemy*>(obj) != nullptr) {
-					fs << 2 << std::endl;
-				}
-				if (dynamic_cast<Projectile*>(obj) != nullptr) {
-					fs << 3 << std::endl;
-				}
-				if (dynamic_cast<Floor*>(obj) != nullptr) {
-					fs << 4 << std::endl;
-				}
-				obj->Save(fs);
-			}
-			fs.close();
+			SaveToFile("save.txt", objects);
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-			std::fstream fs;
-			fs.open("save.txt", std::fstream::in);
-			
-			if (fs.is_open()) {
-				GLfloat time;
-				fs >> time;
-
-				size_t obj_size;
-				fs >> obj_size;
-
-				std::vector<Object*> new_objects;
-
-				for (size_t i = 0; i < obj_size; ++i) {
-					size_t type;
-					fs >> type;
-
-					Object* obj = nullptr;
-					if (type == 0) {
-						obj = new Player();
-					}
-					if (type == 1) {
-						obj = new Dummy(glm::vec3());
-					}
-					if (type == 2) {
-						obj = new Enemy(glm::vec3());
-					}
-					if (type == 3) {
-						obj = new Projectile(glm::vec3(), glm::vec3());
-					}
-					if (type == 4) {
-						obj = new Floor(glm::vec3());
-					}
-					obj->Load(fs);
-
-					new_objects.push_back(obj);
-				}
-				fs.close();
-
-				for (Object* obj : objects) {
-					delete obj;
-				}
-
-				objects = new_objects;
-				player = dynamic_cast<Player*>(objects[0]);
-
-				glfwSetTime(time);
-				prev_time = glfwGetTime();
-			}
+			LoadFromFile("save.txt", objects, player, prev_time);
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -793,7 +803,7 @@ int main(void)
 			objects.push_back(new_obj);
 		}
 
-		glm::mat4 Projection = glm::perspective(glm::radians(player->FOV()), 4.0f / 3.0f, player->Box(), 300.0f);
+		glm::mat4 Projection = glm::perspective(glm::radians(player->FOV()), GLfloat(w / h), player->Box(), 300.0f);
 		glm::mat4 View = glm::lookAt(
 			player->Position(),
 			player->Position() + player->CameraDirection(),
@@ -846,7 +856,7 @@ int main(void)
 		for (Object* proj : projectiles) {
 			pos.push_back(proj->Position());
 			light_colors.push_back(glm::vec3(1.0f, 0.3f, 0.3f));
-			powers.push_back(proj->Box() * 1000.0f);
+			powers.push_back(proj->Box() * 100.0f);
 		}
 
 		int num = std::min(pos.size(), size_t(ShaderNum));
@@ -858,9 +868,9 @@ int main(void)
 			glUniform1fv(LightPowerID, num, &powers[0]);
 		}
 
-		glm::vec3 light = glm::vec3(0.3f, 0.3f, 0.3f);
+		glm::vec3 light = glm::vec3(0.05f, 0.05f, 0.05f);
 		glUniform3fv(SpecularID, 1, &light[0]);
-		light = glm::vec3(0.01f, 0.01f, 0.01f);
+		light = glm::vec3(0.05f, 0.05f, 0.05f);
 		glUniform3fv(AmbientID, 1, &light[0]);
 
 		for (Object* obj : objects) {
@@ -907,6 +917,7 @@ int main(void)
 		delete obj;
 	}
 
+	cleanupText2D();
 	glDeleteBuffers(1, &vertexbuffer);
 	glDeleteBuffers(1, &uvbuffer);
 	glDeleteBuffers(1, &normalbuffer);
