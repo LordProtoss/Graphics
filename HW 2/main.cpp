@@ -496,7 +496,7 @@ protected:
 
 class EnemyCreator {
 public:
-	explicit EnemyCreator(GLfloat cooldown = 10.0f, size_t retries = 10, GLfloat p = 0.5, GLfloat r_from = 30.0f,
+	explicit EnemyCreator(GLfloat cooldown = 10.0f, size_t retries = 10, GLfloat p = 0.01, GLfloat r_from = 30.0f,
 		GLfloat r_to = 50.0f, GLfloat hp_from = 1.0f, GLfloat hp_to = 5.0f, 
 		GLfloat speed_from = 1.0f, GLfloat speed_to = 2.0f)
 		: cooldown_(cooldown), rng_(std::random_device()()), retries_(retries), type_(p), angle_(-3.14, 3.14),
@@ -545,6 +545,9 @@ public:
 
 				if (possible) {
 					return new_obj;
+				}
+				else {
+					delete new_obj;
 				}
 			}
 		}
@@ -757,14 +760,10 @@ int main(void)
 			remains[i] = objects[i]->CheckSelf();
 		}
 
-		bool check = false;
-
 		for (size_t i = 0; i < objects.size(); ++i) {
 			for (size_t j = i + 1; j < objects.size(); ++j) {
 				remains[i] = remains[i] && objects[i]->Interract(objects[j], old_positions[i]);
 				remains[j] = remains[j] && objects[j]->Interract(objects[i], old_positions[j]);
-
-				check = check || !remains[i] || !remains[j];
 			}
 		}
 
@@ -856,7 +855,7 @@ int main(void)
 		for (Object* proj : projectiles) {
 			pos.push_back(proj->Position());
 			light_colors.push_back(glm::vec3(1.0f, 0.3f, 0.3f));
-			powers.push_back(proj->Box() * 100.0f);
+			powers.push_back(proj->Box() * 1000.0f);
 		}
 
 		int num = std::min(pos.size(), size_t(ShaderNum));
@@ -868,9 +867,9 @@ int main(void)
 			glUniform1fv(LightPowerID, num, &powers[0]);
 		}
 
-		glm::vec3 light = glm::vec3(0.05f, 0.05f, 0.05f);
+		glm::vec3 light = glm::vec3(0.5f, 0.5f, 0.5f);
 		glUniform3fv(SpecularID, 1, &light[0]);
-		light = glm::vec3(0.05f, 0.05f, 0.05f);
+		light = glm::vec3(0.3f, 0.3f, 0.3f);
 		glUniform3fv(AmbientID, 1, &light[0]);
 
 		for (Object* obj : objects) {
